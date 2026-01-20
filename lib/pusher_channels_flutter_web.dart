@@ -39,7 +39,7 @@ T dartify<T>(dynamic jsObject) {
   var keys = objectKeys(jsObject);
   var result = <String, dynamic>{};
   for (var key in keys.toDart.map((e) => e.toDart)) {
-    result[key] = dartify((jsObject as JSObject).getProperty(key));
+    result[key] = dartify((jsObject as JSObject).getProperty(key.toJS));
   }
   return result as T;
 }
