@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:js_interop';
-import 'dart:js_util' as js_util;
-
+import 'dart:js_interop_unsafe';
 // In order to *not* need this ignore, consider extracting the 'web' version
 // of your plugin as a separate package, instead of inlining it in the same
 // package as the core of your plugin.
@@ -40,7 +39,7 @@ T dartify<T>(dynamic jsObject) {
   var keys = objectKeys(jsObject);
   var result = <String, dynamic>{};
   for (var key in keys.toDart.map((e) => e.toDart)) {
-    result[key] = dartify(js_util.getProperty(jsObject, key));
+    result[key] = dartify((jsObject as JSObject).getProperty(key));
   }
   return result as T;
 }
