@@ -30,17 +30,52 @@ bool _isBasicType(value) {
 }
 
 T dartify<T>(dynamic jsObject) {
-  if (_isBasicType(jsObject)) {
-    return jsObject as T;
+  // 1. 이미 Dart 타입인 경우 바로 반환 (방어 코드)
+  if (jsObject is String) return jsObject as T;
+  if (jsObject is num) return jsObject as T;
+  if (jsObject is bool) return jsObject as T;
+  if (jsObject is List) return jsObject.map(dartify).toList() as T;
+  if (jsObject is Map) return jsObject as T;
+  if (jsObject == null) return null as T;
+
+  // 2. JS 타입으로 변환 (Safe Cast)
+  final JSAny? any = jsObject as JSAny?;
+  if (any == null) return null as T;
+
+  // 3. [핵심] Wasm에서는 .isA<Type>()을 써야 정확합니다.
+  if (any.isA<JSString>()) {
+    return (any as JSString).toDart as T;
   }
-  if (jsObject is List) {
-    return jsObject.map(dartify).toList() as T;
+  if (any.isA<JSNumber>()) {
+    return (any as JSNumber).toDartDouble as T;
   }
-  var keys = objectKeys(jsObject);
-  var result = <String, dynamic>{};
-  for (var key in keys.toDart.map((e) => e.toDart)) {
-    result[key] = dartify((jsObject as JSObject).getProperty(key.toJS));
+  if (any.isA<JSBoolean>()) {
+    return (any as JSBoolean).toDart as T;
   }
+
+  // 4. JS 배열 처리
+  if (any.isA<JSArray>()) {
+    final JSArray array = any as JSArray;
+    return array.toDart.map((e) => dartify(e)).toList() as T;
+  }
+
+  // 5. JS 객체 처리 (Map으로 변환)
+  // 여기까지 왔다는 건, Primitive도 아니고 Array도 아닌 '순수 객체'라는 뜻입니다.
+  final JSObject obj = any as JSObject;
+  final keys = objectKeys(obj); // 외부에서 선언된 external function 사용
+  
+  final result = <String, dynamic>{};
+  
+  for (final key in keys.toDart) {
+    // key는 JSString 상태입니다.
+    final String keyStr = key.toDart; 
+    
+    // 값을 가져올 때는 JSString key를 그대로 사용합니다.
+    final value = obj.getProperty(key);
+    
+    result[keyStr] = dartify(value);
+  }
+
   return result as T;
 }
 
